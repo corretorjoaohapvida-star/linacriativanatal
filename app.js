@@ -9,7 +9,7 @@
   const timer = document.querySelector('.launch-countdown');
   if (!timer) return;
   const duration = 24 * 60 * 60 * 1000;
-  const key = 'lina-natal-countdown-v1';
+  const key = 'lina-christmas-en-countdown-v1';
   const fields = ['hours', 'minutes', 'seconds'].map(unit => timer.querySelector('[data-launch-' + unit + ']'));
   if (fields.some(field => !field)) return;
   let deadline;
@@ -35,7 +35,7 @@
         field.animate([{ opacity: .4, transform: 'translateY(3px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 240, easing: 'ease-out' });
       }
     });
-    timer.setAttribute('aria-label', parts[0] + ' horas, ' + parts[1] + ' minutos e ' + parts[2] + ' segundos');
+    timer.setAttribute('aria-label', parts[0] + ' hours, ' + parts[1] + ' minutes and ' + parts[2] + ' seconds');
     timer.hidden = false;
   }
   persist();
@@ -56,7 +56,7 @@
   const dialog = document.createElement('dialog');
   dialog.className = 'photo-dialog';
   dialog.setAttribute('aria-labelledby', 'photo-dialog-title');
-  dialog.innerHTML = '<button type="button" class="photo-dialog-close" aria-label="Fechar imagem" autofocus>×</button><figure><img class="photo-dialog-image" alt=""><figcaption id="photo-dialog-title"></figcaption></figure>';
+  dialog.innerHTML = '<button type="button" class="photo-dialog-close" aria-label="Close image" autofocus>×</button><figure><img class="photo-dialog-image" alt=""><figcaption id="photo-dialog-title"></figcaption></figure>';
   document.body.append(dialog);
   const preview = dialog.querySelector('img');
   preview.src = images[0].currentSrc || images[0].src;
@@ -73,7 +73,7 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'image-zoom';
-    button.setAttribute('aria-label', 'Ampliar imagem: ' + image.alt);
+    button.setAttribute('aria-label', 'Enlarge image: ' + image.alt);
     button.setAttribute('aria-haspopup', 'dialog');
     image.before(button);button.append(image);
     const badge = document.createElement('span');
@@ -100,3 +100,22 @@
   });
 })();
 
+
+// Optional upgrade before checkout; Basic remains available without accepting.
+(() => {
+ const dialog=document.querySelector('.upgrade-dialog');
+ const url=window.OFERTA_CONFIG?.checkouts?.upgrade||'';
+ if(!dialog||typeof dialog.showModal!=='function'||!/^https?:\/\//i.test(url))return;
+ let trigger,previousOverflow='';
+ document.querySelectorAll('[data-checkout="basico"]').forEach(link=>{
+  link.setAttribute('aria-haspopup','dialog');
+  link.addEventListener('click',event=>{
+   if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.button!==0)return;
+   event.preventDefault();trigger=link;previousOverflow=document.body.style.overflow;
+   dialog.showModal();document.body.style.overflow='hidden';
+  });
+ });
+ dialog.querySelector('.upgrade-close').addEventListener('click',()=>dialog.close());
+ dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});
+ dialog.addEventListener('close',()=>{document.body.style.overflow=previousOverflow;trigger?.focus({preventScroll:true});});
+})();
