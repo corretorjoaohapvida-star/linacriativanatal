@@ -1,2 +1,2 @@
-// English USD Hotmart checkouts.
-window.OFERTA_CONFIG = { currency: "USD", language: "en-US", paymentProvider: "Hotmart", checkouts: { basico: "https://pay.hotmart.com/J108172449M?checkoutMode=10", "basico-direct": "https://pay.hotmart.com/J108172449M?checkoutMode=10", completo: "https://pay.hotmart.com/Y108172502Q?checkoutMode=10", upgrade: "https://pay.hotmart.com/Y108172502Q?off=j6afihat&checkoutMode=10" } };
+// Links BR autorizados; proprietario ajustara os valores no checkout.
+window.OFERTA_CONFIG={currency:'BRL',prices:{basico:14.90,completo:19.90},checkouts:{basico:'https://pay.wiapy.com/bMwoB14k9s6D',completo:'https://pay.wiapy.com/KvPHb60FkGcX'}};
