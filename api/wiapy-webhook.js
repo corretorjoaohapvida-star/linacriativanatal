@@ -1,0 +1,70 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
+const pixel = "DBLBLQJC77UDLIGRANU0";
+
+function equal(a, b) {
+  const x = Buffer.from(String(a || ""));
+  const y = Buffer.from(String(b || ""));
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+
+  const auth = process.env.WIAPY_WEBHOOK_TOKEN;
+  const apiToken = process.env.TIKTOK_EVENTS_API_TOKEN;
+  if (!auth || !apiToken) return res.status(503).json({ error: "Not configured" });
+  if (!equal(req.headers.authorization, auth)) return res.status(401).json({ error: "Unauthorized" });
+
+  const body = req.body;
+  const payment = body?.payment;
+  if (payment?.status !== "paid") return res.status(200).json({ ignored: true });
+  if (!payment.id || !Number.isSafeInteger(payment.amount) || payment.amount <= 0) {
+    return res.status(400).json({ error: "Invalid payment" });
+  }
+
+  const user = {};
+  const email = body?.customer?.email;
+  if (typeof email === "string" && email.trim()) {
+    user.email = createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+  }
+  if (body?.tracking?.ip) user.ip = body.tracking.ip;
+  if (body?.tracking?.useragent) user.user_agent = body.tracking.useragent;
+
+  const tracking = body?.tracking || {};
+  const event = {
+    event: "Purchase",
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: "wiapy_" + String(payment.id),
+    user,
+    page: { url: "https://linacriativanatal.vercel.app/" },
+    properties: {
+      currency: "BRL",
+      value: payment.amount / 100,
+      content_type: "product",
+      description: body?.checkout?.title || "Pack de Natal"
+    }
+  };
+  const payload = { event_source: "web", event_source_id: pixel, data: [event] };
+  for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
+    if (typeof tracking[k] === "string") payload[k] = tracking[k];
+  }
+
+  try {
+    const response = await fetch("https://business-api.tiktok.com/open_api/v1.3/event/track/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Access-Token": apiToken },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(9000)
+    });
+    const data = await response.json();
+    if (!response.ok || data.code !== 0) {
+      console.error("TikTok response code", response.status, data.code);
+      return res.status(502).json({ error: "Delivery failed" });
+    }
+    return res.status(200).json({ received: true });
+  } catch (err) {
+    console.error("TikTok connection failed", err?.message);
+    return res.status(502).json({ error: "Delivery failed" });
+  }
+}
