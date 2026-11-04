@@ -32,6 +32,39 @@ export default async function handler(req, res) {
   if (body?.tracking?.useragent) user.user_agent = body.tracking.useragent;
 
   const tracking = body?.tracking || {};
+
+  // Preserve Wiapy's stable product/checkout IDs for TikTok catalog matching.
+  // Never use the transaction ID as a product ID: it changes on every sale.
+  const contents = [];
+  for (const product of Array.isArray(body?.products) ? body.products : []) {
+    if (typeof product?.id !== "string" || !product.id.trim()) continue;
+    const item = { content_id: product.id.trim(), quantity: 1 };
+    if (typeof product.title === "string" && product.title.trim()) {
+      item.content_name = product.title.trim();
+    }
+    contents.push(item);
+  }
+
+  if (contents.length === 0 && typeof body?.checkout?.id === "string" && body.checkout.id.trim()) {
+    const item = { content_id: body.checkout.id.trim(), quantity: 1 };
+    if (typeof body.checkout.title === "string" && body.checkout.title.trim()) {
+      item.content_name = body.checkout.title.trim();
+    }
+    contents.push(item);
+  }
+
+  for (const bump of Array.isArray(body?.checkout?.orderbump) ? body.checkout.orderbump : []) {
+    if (typeof bump?.id !== "string" || !bump.id.trim()) continue;
+    if (contents.some(item => item.content_id === bump.id.trim())) continue;
+    const item = { content_id: bump.id.trim(), quantity: 1 };
+    if (typeof bump.title === "string" && bump.title.trim()) item.content_name = bump.title.trim();
+    if (Number.isSafeInteger(bump.amount) && bump.amount >= 0) item.price = bump.amount / 100;
+    contents.push(item);
+  }
+  if (contents.length === 1 && Number.isSafeInteger(body?.checkout?.amount) && body.checkout.amount >= 0) {
+    contents[0].price = body.checkout.amount / 100;
+  }
+
   const event = {
     event: "Purchase",
     event_time: Math.floor(Date.now() / 1000),
@@ -42,6 +75,7 @@ export default async function handler(req, res) {
       currency: "BRL",
       value: payment.amount / 100,
       content_type: "product",
+      ...(contents.length > 0 ? { content_ids: contents.map(item => item.content_id), contents } : {}),
       description: body?.checkout?.title || "Pack de Natal"
     }
   };
