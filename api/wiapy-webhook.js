@@ -47,11 +47,12 @@ export default async function handler(req, res) {
   };
   const payload = { event_source: "web", event_source_id: pixel, data: [event] };
 
-  // Only the one specified synthetic Wiapy transaction enters test mode.
-  // All other approved sales continue as normal production events.
-  const testPaymentId = process.env.WIAPY_TEST_PAYMENT_ID;
+  // Wiapy marks synthetic test webhooks with x-wiapy-test: true.
+  // The auth token has already been verified above. Normal paid orders
+  // will never use TikTok test mode.
+  const isWiapyTest = String(req.headers["x-wiapy-test"] || "").toLowerCase() === "true";
   const testCode = process.env.TIKTOK_TEST_EVENT_CODE;
-  if (testPaymentId && testCode && String(payment.id) === testPaymentId) {
+  if (isWiapyTest && testCode) {
     payload.test_event_code = testCode;
   }
   for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
