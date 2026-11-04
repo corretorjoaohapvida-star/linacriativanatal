@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual, randomUUID } from "node:crypto";
 
 const pixel = "DBLBLQJC77UDLIGRANU0";
 
@@ -52,7 +52,11 @@ export default async function handler(req, res) {
   // will never use TikTok test mode.
   const isWiapyTest = String(req.headers["x-wiapy-test"] || "").toLowerCase() === "true";
   const testCode = process.env.TIKTOK_TEST_EVENT_CODE;
-  if (isWiapyTest && testCode) {
+  if (isWiapyTest) {
+    if (!testCode) return res.status(503).json({ error: "TikTok test code not configured" });
+    // Wiapy reuses a fixed synthetic transaction ID. Give each synthetic test
+    // a fresh event ID so TikTok does not discard repeat tests as duplicates.
+    event.event_id = "wiapy_test_" + randomUUID();
     payload.test_event_code = testCode;
   }
   for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
@@ -70,6 +74,16 @@ export default async function handler(req, res) {
     if (!response.ok || data.code !== 0) {
       console.error("TikTok response code", response.status, data.code);
       return res.status(502).json({ error: "Delivery failed" });
+    }
+    if (isWiapyTest) {
+      console.info("Wiapy synthetic TikTok test accepted", {
+        httpStatus: response.status,
+        code: data.code,
+        requestId: data.request_id || null,
+        eventId: event.event_id,
+        testCodeIncluded: Boolean(payload.test_event_code)
+      });
+      return res.status(200).json({ received: true, synthetic_test: true, tiktok_code: data.code, tiktok_request_id: data.request_id || null });
     }
     return res.status(200).json({ received: true });
   } catch (err) {
